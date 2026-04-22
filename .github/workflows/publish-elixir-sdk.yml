@@ -6,7 +6,7 @@ on:
     - cron: '0 6 * * *'
   push:
     branches:
-      - main
+      - zapfetch-disabled  # [ZAPFETCH-OVERRIDE] ZapFetch fork does not publish SDKs
     paths:
       - 'apps/elixir-sdk/**'
   workflow_dispatch:

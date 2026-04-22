@@ -3,7 +3,7 @@ name: Deploy Images to GHCR
 on:
   push:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/api/**
       - .github/workflows/deploy-image.yml

@@ -3,7 +3,7 @@ name: Deploy NuQ Postgres to GHCR
 on:
   push:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/nuq-postgres/**
   workflow_dispatch:

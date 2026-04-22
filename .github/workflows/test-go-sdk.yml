@@ -3,13 +3,13 @@ name: Go SDK Check
 on:
   pull_request:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/go-sdk/**
       - .github/workflows/test-go-sdk.yml
   push:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/go-sdk/**
   workflow_dispatch:

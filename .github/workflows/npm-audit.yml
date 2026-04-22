@@ -3,7 +3,7 @@ name: Audit NPM Packages
 on:
   pull_request:
     branches:
-      - main
+      - zapfetch/main
 
 jobs:
   audit:

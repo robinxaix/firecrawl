@@ -3,7 +3,7 @@ name: Publish JS SDK
 on:
   push:
     branches:
-      - main
+      - zapfetch-disabled  # [ZAPFETCH-OVERRIDE] ZapFetch fork does not publish SDKs
     paths:
       - apps/js-sdk/firecrawl/package.json
 

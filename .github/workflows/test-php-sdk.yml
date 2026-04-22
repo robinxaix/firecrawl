@@ -3,13 +3,13 @@ name: PHP SDK Test Suite
 on:
   pull_request:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/php-sdk/**
       - .github/workflows/test-php-sdk.yml
   push:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/php-sdk/**
   workflow_dispatch:

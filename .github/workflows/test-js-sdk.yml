@@ -3,7 +3,7 @@ name: JS SDK Test Suite
 on:
   pull_request:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/js-sdk/firecrawl/**
 

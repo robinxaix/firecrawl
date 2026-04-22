@@ -118,3 +118,26 @@
 
 # Examples
 /examples/*                                     @ericciarla @nickscamara
+
+# -----------------------------------------------------------------------------
+# [ZAPFETCH-OVERRIDE] ZapFetch fork divergences (last-match-wins)
+# -----------------------------------------------------------------------------
+# Paths below are the fork's overrides from upstream. Guarded so an upstream
+# merge cannot silently drop them. See ZAPFETCH-OVERRIDES.md for the
+# authoritative divergence manifest.
+# Upstream maintainers above are not members of the zapfetch org and those
+# rules are ignored in this fork — these rules are the only effective ones.
+
+# Billing / rate limit / env schema (flat-pricing override, rpm floor removal)
+/apps/api/src/lib/scrape-billing.ts              @robinxaix
+/apps/api/src/services/rate-limiter.ts           @robinxaix
+/apps/api/src/config.ts                          @robinxaix
+/ZAPFETCH-OVERRIDES.md                           @robinxaix
+
+# Branch strategy / image pipeline (zapfetch/main, ACR registry)
+/.github/workflows/deploy-image.yml              @robinxaix
+/.github/workflows/deploy-go-service.yaml        @robinxaix
+/.github/workflows/deploy-nuq-postgres.yml       @robinxaix
+/.github/workflows/deploy-playwright.yml         @robinxaix
+/.github/workflows/deploy-redis.yml              @robinxaix
+/.github/CODEOWNERS                              @robinxaix

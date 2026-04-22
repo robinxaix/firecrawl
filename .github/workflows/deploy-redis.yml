@@ -6,7 +6,7 @@ env:
 on:
   push:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/redis/**
   workflow_dispatch:
