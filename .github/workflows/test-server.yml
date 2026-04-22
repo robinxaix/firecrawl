@@ -3,7 +3,7 @@ name: Server Test Suite
 on:
   pull_request:
     branches:
-      - main
+      - zapfetch/main
 
 concurrency:
   group: ci=${{ github.workflow }}-${{ github.ref }}

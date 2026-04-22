@@ -3,7 +3,7 @@ name: Deploy Playwright to GHCR
 on:
   push:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/playwright-service-ts/**
       - .github/workflows/deploy-playwright.yml

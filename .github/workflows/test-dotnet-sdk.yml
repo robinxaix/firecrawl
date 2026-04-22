@@ -3,13 +3,13 @@ name: .NET SDK Test Suite
 on:
   pull_request:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/.net-sdk/**
       - .github/workflows/test-dotnet-sdk.yml
   push:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/.net-sdk/**
   workflow_dispatch:

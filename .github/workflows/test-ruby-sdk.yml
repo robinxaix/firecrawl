@@ -3,13 +3,13 @@ name: Ruby SDK Test Suite
 on:
   pull_request:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/ruby-sdk/**
       - .github/workflows/test-ruby-sdk.yml
   push:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/ruby-sdk/**
   workflow_dispatch:

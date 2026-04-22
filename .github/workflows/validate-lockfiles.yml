@@ -3,7 +3,7 @@ name: Validate Lockfiles
 on:
   pull_request:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - "apps/test-suite/package.json"
       - "apps/test-suite/pnpm-lock.yaml"

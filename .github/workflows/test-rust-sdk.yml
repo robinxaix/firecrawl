@@ -3,7 +3,7 @@ name: Rust SDK Test Suite
 on:
   pull_request:
     branches:
-      - main
+      - zapfetch/main
     paths:
       - apps/rust-sdk/**
 

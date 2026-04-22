@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - zapfetch-disabled  # [ZAPFETCH-OVERRIDE] ZapFetch fork does not publish SDKs
     paths:
       - 'apps/ruby-sdk/**'
 
