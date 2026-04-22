@@ -36,12 +36,12 @@ export function getRateLimiter(
   mode: RateLimiterMode,
   rate_limits: AuthCreditUsageChunk["rate_limits"] | null,
 ): RateLimiterRedis {
-  let rateLimit = rate_limits?.[mode] ?? fallbackRateLimits?.[mode] ?? 500;
-
-  if (mode === RateLimiterMode.Search || mode === RateLimiterMode.Scrape) {
-    // TEMP: Mogery
-    rateLimit = Math.max(rateLimit, 100);
-  }
-
+  // [ZAPFETCH-OVERRIDE] pricing.md §二: Free=5 / Starter=50 / Pro=200 rpm for
+  // scrape+search. Upstream Firecrawl previously forced rpm ≥ 100 via
+  // Math.max(rateLimit, 100) (marked "TEMP: Mogery"), which nullified the
+  // backend plans table's lower tiers. Removed unconditionally — no kill
+  // switch because this is a read-only code path with low revert cost.
+  // See firecrawl/ZAPFETCH-OVERRIDES.md.
+  const rateLimit = rate_limits?.[mode] ?? fallbackRateLimits?.[mode] ?? 500;
   return createRateLimiter(`${mode}`, rateLimit);
 }
