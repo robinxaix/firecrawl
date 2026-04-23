@@ -247,6 +247,15 @@ const configSchema = z.object({
   // Billing
   AUTO_RECHARGE_ENABLED: z.stringbool().default(false),
 
+  // [ZAPFETCH-OVERRIDE] pricing.md §一 guarantees "1 credit = 1 操作, 永远".
+  // When true (default), scrape-billing returns a flat 1 credit for any
+  // successful document regardless of format, proxy, PDF pages, or ZDR.
+  // Setting this to false falls back to upstream Firecrawl's multi-factor
+  // pricing (json=5, query+4, audio+4, stealth+4, unblocked+4, ZDR+1,
+  // PDF per-extra-page+1). Intended as a kill-switch only.
+  // See firecrawl/ZAPFETCH-OVERRIDES.md.
+  ZAPFETCH_FLAT_PRICING: z.stringbool().default(true),
+
   // Miscellaneous
   IDMUX_URL: z.string().optional(),
   GITHUB_RUN_NUMBER: z.string().optional(),
