@@ -255,7 +255,7 @@ export async function scrapeController(req: Request, res: Response) {
         earlyReturn = true;
         return res.status(402).json({
           error:
-            "Insufficient credits. For more credits, you can upgrade your plan at https://firecrawl.dev/pricing",
+            "Insufficient credits. For more credits, you can upgrade your plan at https://console.zapfetch.com/#pricing",
         });
       }
     } catch (error) {

@@ -537,7 +537,7 @@ async function supaAuthenticateUser(
 
     return {
       success: false,
-      error: `Rate limit exceeded. Consumed (req/min): ${rateLimiterRes.consumedPoints}, Remaining (req/min): ${rateLimiterRes.remainingPoints}. Upgrade your plan at https://firecrawl.dev/pricing for increased rate limits or please retry after ${secs}s, resets at ${retryDate}`,
+      error: `Rate limit exceeded. Consumed (req/min): ${rateLimiterRes.consumedPoints}, Remaining (req/min): ${rateLimiterRes.remainingPoints}. Upgrade your plan at https://console.zapfetch.com/#pricing for increased rate limits or please retry after ${secs}s, resets at ${retryDate}`,
       status: 429,
     };
   }

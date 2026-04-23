@@ -239,7 +239,7 @@ export async function browserCreateController(
     });
     return res.status(402).json({
       success: false,
-      error: `Insufficient credits for a ${ttl}s browser session (requires ~${estimatedCredits} credits). For more credits, you can upgrade your plan at https://firecrawl.dev/pricing.`,
+      error: `Insufficient credits for a ${ttl}s browser session (requires ~${estimatedCredits} credits). For more credits, you can upgrade your plan at https://console.zapfetch.com/#pricing.`,
     });
   }
 

@@ -82,7 +82,7 @@ export function checkCreditsMiddleware(
               credits_used: req.acuc.adjusted_credits_used,
               sponsor_status: "pending",
               login_url: "https://firecrawl.dev/signin",
-              upgrade_url: "https://firecrawl.dev/pricing",
+              upgrade_url: "https://console.zapfetch.com/#pricing",
             });
           }
 
@@ -215,7 +215,7 @@ export function checkCreditsMiddleware(
               currencyName +
               ", you can upgrade your plan at " +
               (currencyName === "credits"
-                ? "https://firecrawl.dev/pricing or try changing the request limit to a lower value"
+                ? "https://console.zapfetch.com/#pricing or try changing the request limit to a lower value"
                 : "https://www.firecrawl.dev/extract#pricing") +
               ".",
           });
