@@ -39,6 +39,30 @@
 | `apps/api/src/lib/scrape-billing.ts` | ~18–110 | `ZAPFETCH_FLAT_PRICING` (default `true`) | Flat 1-credit per successful scrape, regardless of format / proxy / PDF pages / ZDR. Upstream charges 5 for json, +4 for query/audio/stealth/unblocked, +1 per extra PDF page, +zdrCost for ZDR. | `docs/price/pricing.md` §一、§八 FAQ |
 | `apps/api/src/services/rate-limiter.ts` | ~35–48 | — (low-risk, no switch) | Remove `Math.max(rateLimit, 100)` scrape/search floor (upstream "TEMP: Mogery"). Let backend plans table dictate Free=5 / Starter=50 / Pro=200 rpm. | `docs/price/pricing.md` §二 |
 | `apps/api/src/config.ts` | (billing section) | n/a (this file defines the switch) | Adds `ZAPFETCH_FLAT_PRICING` env var to zod schema. | — |
+| `apps/api/src/**/*.ts` (user-visible URLs) | batch sed | — | Every occurrence of `https://firecrawl.dev/pricing` rewritten to `https://console.zapfetch.com/#pricing`. Covers rate-limit / insufficient-credits error messages, `upgrade_url` JSON fields, and email notification HTML. Anchor text in email templates that previously displayed "firecrawl.dev/pricing" is also rewritten to "console.zapfetch.com/#pricing" so the visible link label matches the href. | `docs/price/pricing.md` (landing URL) |
+
+### Maintaining the URL sweep across upstream merges
+
+This override is a batch substitution across all `apps/api/src/**/*.ts`,
+not a single-point marker. After each upstream merge, re-apply:
+
+```bash
+# href / bare URL references
+grep -rl "firecrawl\.dev/pricing" apps/api/src/ --include="*.ts" | while read f; do
+  sed -i '' 's|https://firecrawl\.dev/pricing|https://console.zapfetch.com/#pricing|g' "$f"
+done
+
+# anchor text that still reads "firecrawl.dev/pricing"
+sed -i '' "s|>firecrawl.dev/pricing</a>|>console.zapfetch.com/#pricing</a>|g" \
+  apps/api/src/services/notification/email_notification.ts
+```
+
+Verify zero remaining references: `git grep "firecrawl.dev/pricing" apps/api/src/`.
+
+Other brand / support references (`help@firecrawl.com`, "Firecrawl Team"
+sign-offs, `firecrawl.dev/app/account-settings`) are intentionally left
+alone — not pricing-alignment concerns, and tracking them here would
+bloat the override surface without user impact.
 
 ---
 
