@@ -4,9 +4,11 @@
 # amd64, so arm64 is unnecessary build cost. If that changes, restore the
 # matrix from git history (commit before this override).
 #
-# Tag strategy: `zf-<sha8>` + `latest`. The `zf-` prefix namespaces our images
-# away from upstream's `:latest` so a misconfigured overlay can't pull the
-# wrong thing. deploy/ overlays pin by digest, not by `:latest`.
+# Tag strategy: `zf-<sha8>` only. We deliberately do not publish `:latest`
+# because deploy/ overlays reference images by `newTag: zf-<sha>`, and a
+# rolling `:latest` tag adds a "which sha is this actually" mystery that CI
+# auto-update can't help with. Every produced tag is immutable, commit-SHA
+# derived, and matches one-to-one with a zapfetch/main commit.
 name: Deploy Firecrawl Image to ACR
 
 on:
@@ -58,21 +60,25 @@ jobs:
           push: true
           platforms: linux/amd64
           provenance: false
-          tags: |
-            ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.image_tag }}
-            ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
+          tags: ${{ env.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.image_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Summary
         env:
           FULL_IMAGE: ${{ steps.meta.outputs.full_image }}
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
         run: |
           {
             echo "### Firecrawl Image (ZapFetch fork)"
             echo ""
             echo "- \`${FULL_IMAGE}\`"
-            echo "- \`${ACR_REGISTRY}/${ACR_NAMESPACE}/${IMAGE_NAME}:latest\`"
             echo ""
-            echo "Pull the digest and pin it in \`zapfetch/deploy\` overlays."
+            echo "Pin this tag in \`zapfetch/deploy\` overlays:"
+            echo ""
+            echo "\`\`\`yaml"
+            echo "images:"
+            echo "  - name: ${ACR_REGISTRY}/${ACR_NAMESPACE}/${IMAGE_NAME}"
+            echo "    newTag: ${IMAGE_TAG}"
+            echo "\`\`\`"
           } >> "$GITHUB_STEP_SUMMARY"
