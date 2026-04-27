@@ -1584,7 +1584,10 @@ export function fromV1ScrapeOptions(
 
       ...(v1ScrapeOptions.__experimental_cache
         ? {
-            maxAge: v1ScrapeOptions.maxAge ?? 4 * 60 * 60 * 1000, // 4 hours
+            // ZAPFETCH-OVERRIDE (ZF-2): default 24h instead of upstream 4h.
+            // Aligned with the engine-level default in zapfetch-cache/storage.ts.
+            // Drop this override if you stop self-hosting cache.
+            maxAge: v1ScrapeOptions.maxAge ?? 24 * 60 * 60 * 1000, // 24 hours (was 4h upstream)
           }
         : {}),
       location: v1ScrapeOptions.location ?? v1ScrapeOptions.geolocation,

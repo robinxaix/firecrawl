@@ -14,6 +14,13 @@ import {
   scrapeURLWithPlaywright,
 } from "./playwright";
 import { indexMaxReasonableTime, scrapeURLWithIndex } from "./index/index";
+// ZAPFETCH-OVERRIDE (ZF-2): self-hosted PG+OSS cache engine, replaces upstream
+// index engine in zapfetch deploys. See firecrawl/ZAPFETCH-OVERRIDES.md.
+import {
+  scrapeURLWithZapfetchCache,
+  zapfetchCacheMaxReasonableTime,
+} from "./zapfetch-cache";
+import { isZapfetchCacheConfigured } from "./zapfetch-cache/storage";
 import {
   scrapeURLWithWikipedia,
   wikipediaMaxReasonableTime,
@@ -39,7 +46,8 @@ export type Engine =
   | "document"
   | "index"
   | "index;documents"
-  | "wikipedia";
+  | "wikipedia"
+  | "zapfetch-cache";
 
 const useFireEngine =
   config.FIRE_ENGINE_BETA_URL !== "" &&
@@ -53,7 +61,11 @@ const useWikipedia =
   config.WIKIPEDIA_ENTERPRISE_PASSWORD !== undefined &&
   config.WIKIPEDIA_ENTERPRISE_PASSWORD !== "";
 
+// ZAPFETCH-OVERRIDE (ZF-2)
+const useZapfetchCache = isZapfetchCacheConfigured();
+
 const engines: Engine[] = [
+  ...(useZapfetchCache ? ["zapfetch-cache" as const] : []),
   ...(useWikipedia ? ["wikipedia" as const] : []),
   ...(useIndex ? ["index" as const, "index;documents" as const] : []),
   ...(useFireEngine
@@ -151,6 +163,7 @@ export type EngineScrapeResult = {
 const engineHandlers: {
   [E in Engine]: (meta: Meta) => Promise<EngineScrapeResult>;
 } = {
+  "zapfetch-cache": scrapeURLWithZapfetchCache,
   index: scrapeURLWithIndex,
   "index;documents": scrapeURLWithIndex,
   "fire-engine;chrome-cdp": scrapeURLWithFireEngineChromeCDP,
@@ -169,6 +182,7 @@ const engineHandlers: {
 const engineMRTs: {
   [E in Engine]: (meta: Meta) => number;
 } = {
+  "zapfetch-cache": zapfetchCacheMaxReasonableTime,
   index: indexMaxReasonableTime,
   "index;documents": indexMaxReasonableTime,
   "fire-engine;chrome-cdp": meta =>
@@ -200,6 +214,28 @@ const engineOptions: {
     quality: number;
   };
 } = {
+  // ZAPFETCH-OVERRIDE (ZF-2): try our PG+OSS cache before anything else.
+  // Quality 1100 > index's 1000 so cache wins when both are configured (we
+  // expect upstream index to be off in zapfetch deploys, but defensive).
+  "zapfetch-cache": {
+    features: {
+      actions: false,
+      waitFor: true,
+      screenshot: false,
+      "screenshot@fullScreen": false,
+      pdf: false,
+      document: false,
+      atsv: false,
+      mobile: true,
+      location: false,
+      skipTlsVerification: true,
+      useFastMode: true,
+      stealthProxy: false,
+      branding: false,
+      disableAdblock: true,
+    },
+    quality: 1100,
+  },
   index: {
     features: {
       actions: false,
@@ -577,7 +613,12 @@ export async function buildFallbackList(meta: Meta): Promise<
 
   if (
     selectedEngines.some(
-      x => engineOptions[x.engine].quality > 0 && !x.engine.startsWith("index"),
+      x =>
+        engineOptions[x.engine].quality > 0 &&
+        !x.engine.startsWith("index") &&
+        // ZAPFETCH-OVERRIDE (ZF-2): cache engine is a "free" probe like index;
+        // don't let its presence trigger the positive-quality filter.
+        x.engine !== "zapfetch-cache",
     )
   ) {
     selectedEngines = selectedEngines.filter(
