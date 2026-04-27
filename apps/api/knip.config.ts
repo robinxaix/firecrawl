@@ -21,6 +21,8 @@ const config: KnipConfig = {
     "src/services/billing/stripe.ts",
     // ZF-2 Task C.1: cache storage adapter (consumed by Task C.3 cache engine)
     "src/zapfetch/cache/**",
+    // ZF-2 Task C.2: cache engine (registered to fallback chain in Task C.3)
+    "src/scraper/scrapeURL/engines/zapfetch-cache/**",
   ],
   ignoreDependencies: ["undici-types", "stripe"],
 };
