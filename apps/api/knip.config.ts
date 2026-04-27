@@ -19,6 +19,8 @@ const config: KnipConfig = {
     "src/services/billing/auto_charge.ts",
     "src/services/billing/issue_credits.ts",
     "src/services/billing/stripe.ts",
+    // ZF-2 Task C.1: cache storage adapter (consumed by Task C.3 cache engine)
+    "src/zapfetch/cache/**",
   ],
   ignoreDependencies: ["undici-types", "stripe"],
 };
