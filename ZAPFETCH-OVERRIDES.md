@@ -40,6 +40,12 @@
 | `apps/api/src/services/rate-limiter.ts` | ~35–48 | — (low-risk, no switch) | Remove `Math.max(rateLimit, 100)` scrape/search floor (upstream "TEMP: Mogery"). Let backend plans table dictate Free=5 / Starter=50 / Pro=200 rpm. | `docs/price/pricing.md` §二 |
 | `apps/api/src/config.ts` | (billing section) | n/a (this file defines the switch) | Adds `ZAPFETCH_FLAT_PRICING` env var to zod schema. | — |
 | `apps/api/src/**/*.ts` (user-visible URLs) | batch sed | — | Every occurrence of `https://firecrawl.dev/pricing` rewritten to `https://console.zapfetch.com/#pricing`. Covers rate-limit / insufficient-credits error messages, `upgrade_url` JSON fields, and email notification HTML. Anchor text in email templates that previously displayed "firecrawl.dev/pricing" is also rewritten to "console.zapfetch.com/#pricing" so the visible link label matches the href. | `docs/price/pricing.md` (landing URL) |
+| `apps/api/src/scraper/scrapeURL/engines/index.ts` | (engines / handlers / options / fallback filter) | `ZAPFETCH_USE_CACHE` (default `false`) | Register self-hosted `zapfetch-cache` engine (Postgres metadata + Aliyun OSS content) into the engine fallback chain. Replaces upstream `index` engine in zapfetch deploys (we don't run Supabase + GCS). | `docs/response-cache-plan.md` |
+| `apps/api/src/scraper/scrapeURL/engines/zapfetch-cache/**` | new files | `ZAPFETCH_USE_CACHE` | Cache engine implementation + storage singleton + write-back transformer. | `docs/response-cache-plan.md` |
+| `apps/api/src/scraper/scrapeURL/transformers/index.ts` | transformer stack | `ZAPFETCH_USE_CACHE` | Inject `sendDocumentToZapfetchCache` write-back into the post-scrape transformer pipeline. Fire-and-forget; never blocks response. | `docs/response-cache-plan.md` |
+| `apps/api/src/zapfetch/cache/**` | new files | `ZAPFETCH_USE_CACHE` | Storage adapters: `PostgresMetadataStore` + `OssContentStore`. Implementation-only; consumed by `engines/zapfetch-cache/`. | `docs/response-cache-plan.md` |
+| `apps/api/src/config.ts` | cache section | n/a (this file defines the switch) | Adds `ZAPFETCH_USE_CACHE` + `CACHE_DATABASE_URL` + `CACHE_OSS_*` + `ZAPFETCH_CACHE_DEFAULT_MAX_AGE_MS` env vars. | — |
+| `apps/api/src/controllers/v2/types.ts` | line ~1587 | — (1-line, low-risk) | Override default `maxAge` for v1→v2 `__experimental_cache` migration from 4h to 24h. Aligned with engine-level default in `zapfetch-cache/storage.ts`. | `docs/response-cache-plan.md` DC5 |
 
 ### Maintaining the URL sweep across upstream merges
 

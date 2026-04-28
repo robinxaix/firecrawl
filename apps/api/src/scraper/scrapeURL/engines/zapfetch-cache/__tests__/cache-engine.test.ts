@@ -77,14 +77,18 @@ describe("scrapeURLWithZapfetchCache", () => {
     expect(stores.metadataLookup).not.toHaveBeenCalled();
   });
 
-  it("throws IndexMissError when maxAge is undefined", async () => {
+  it("falls back to default maxAge when caller omits it", async () => {
+    // ZF-2 behavior: if maxAge is undefined, the engine applies the default
+    // (configured via ZAPFETCH_CACHE_DEFAULT_MAX_AGE_MS, fallback 24h) so the
+    // request still goes to lookup. miss still propagates as IndexMissError.
     const stores = makeStores();
+    stores.metadataLookup.mockResolvedValueOnce(null);
     const engine = makeScrapeURLWithZapfetchCache({ ...stores, now: fixedNow });
 
     await expect(engine(meta({ maxAge: undefined }))).rejects.toBeInstanceOf(
       IndexMissError,
     );
-    expect(stores.metadataLookup).not.toHaveBeenCalled();
+    expect(stores.metadataLookup).toHaveBeenCalled();
   });
 
   it("throws IndexMissError when metadata lookup returns null", async () => {

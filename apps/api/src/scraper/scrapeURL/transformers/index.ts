@@ -20,6 +20,10 @@ import { deriveDiff } from "./diff";
 import { fetchAudio } from "./audio";
 import { useIndex, useSearchIndex } from "../../../services/index";
 import { sendDocumentToIndex } from "../engines/index/index";
+// ZAPFETCH-OVERRIDE (ZF-2): self-hosted PG+OSS cache write-back transformer.
+// See firecrawl/ZAPFETCH-OVERRIDES.md.
+import { sendDocumentToZapfetchCache } from "../engines/zapfetch-cache";
+import { isZapfetchCacheConfigured } from "../engines/zapfetch-cache/storage";
 import { sendDocumentToSearchIndex } from "./sendToSearchIndex";
 import { hasFormatOfType } from "../../../lib/format-utils";
 import { brandingTransformer } from "../../../lib/branding/transformer";
@@ -526,6 +530,9 @@ const transformerStack: Transformer[] = [
   deriveMetadataFromRawHTML,
   uploadScreenshot,
   ...(useIndex ? [sendDocumentToIndex] : []),
+  // ZAPFETCH-OVERRIDE (ZF-2): write-back to PG+OSS cache. Fire-and-forget
+  // inside the transformer; never blocks the response.
+  ...(isZapfetchCacheConfigured() ? [sendDocumentToZapfetchCache] : []),
   ...(useSearchIndex ? [sendDocumentToSearchIndex] : []), // Add to search index for real-time search
   performLLMExtract,
   performSummary,

@@ -82,6 +82,20 @@ const configSchema = z.object({
   INDEX_SUPABASE_SERVICE_TOKEN: z.string().optional(),
   SEARCH_INDEX_SUPABASE_URL: z.string().optional(),
 
+  // ZF-2: zapfetch-cache (Postgres + Aliyun OSS, replaces upstream index for our deploys)
+  // ZAPFETCH-OVERRIDE: see firecrawl/ZAPFETCH-OVERRIDES.md
+  ZAPFETCH_USE_CACHE: z.coerce.boolean().default(false),
+  CACHE_DATABASE_URL: z.string().optional(),
+  CACHE_OSS_BUCKET: z.string().optional(),
+  CACHE_OSS_REGION: z.string().default("oss-ap-southeast-1"),
+  CACHE_OSS_ACCESS_KEY_ID: z.string().optional(),
+  CACHE_OSS_ACCESS_KEY_SECRET: z.string().optional(),
+  ZAPFETCH_CACHE_DEFAULT_MAX_AGE_MS: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .optional(),
+
   // Google Cloud Storage
   GCS_BUCKET_NAME: z.string().optional(),
   GCS_CREDENTIALS: z.string().optional(),
