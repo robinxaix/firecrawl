@@ -959,7 +959,12 @@ async function scrapeURLLoop(meta: Meta): Promise<ScrapeUrlResponse> {
         timezone: engineResult.timezone,
         proxyUsed: engineResult.proxyUsed ?? "basic",
         ...(fallbackList.find(x =>
-          ["index", "index;documents"].includes(x.engine),
+          // [ZAPFETCH-OVERRIDE] include "zapfetch-cache" so the response
+          // metadata signals cacheState=hit/miss when our PG+OSS cache
+          // engine is in the fallback chain. Upstream only listed "index"
+          // / "index;documents" because those were the only cache-flavored
+          // engines they knew about. See ZF-2 Task C.5 followup.
+          ["index", "index;documents", "zapfetch-cache"].includes(x.engine),
         )
           ? engineResult.cacheInfo
             ? {

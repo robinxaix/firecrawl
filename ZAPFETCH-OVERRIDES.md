@@ -46,6 +46,7 @@
 | `apps/api/src/zapfetch/cache/**` | new files | `ZAPFETCH_USE_CACHE` | Storage adapters: `PostgresMetadataStore` + `OssContentStore`. Implementation-only; consumed by `engines/zapfetch-cache/`. | `docs/response-cache-plan.md` |
 | `apps/api/src/config.ts` | cache section | n/a (this file defines the switch) | Adds `ZAPFETCH_USE_CACHE` + `CACHE_DATABASE_URL` + `CACHE_OSS_*` + `ZAPFETCH_CACHE_DEFAULT_MAX_AGE_MS` env vars. | — |
 | `apps/api/src/controllers/v2/types.ts` | line ~1587 | — (1-line, low-risk) | Override default `maxAge` for v1→v2 `__experimental_cache` migration from 4h to 24h. Aligned with engine-level default in `zapfetch-cache/storage.ts`. | `docs/response-cache-plan.md` DC5 |
+| `apps/api/src/scraper/scrapeURL/index.ts` | line ~961 | — (1-line, low-risk) | Extend `cacheState` injection filter from `["index", "index;documents"]` to also include `"zapfetch-cache"`. Upstream's hardcoded list missed our cache engine, so `response.metadata.cacheState=hit\|miss` was never set when zapfetch-cache won. | `docs/response-cache-rollout.md` (ZF-2 Task C.5 followup) |
 
 ### Maintaining the URL sweep across upstream merges
 
