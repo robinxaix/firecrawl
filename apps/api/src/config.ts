@@ -90,6 +90,10 @@ const configSchema = z.object({
   CACHE_OSS_REGION: z.string().default("oss-ap-southeast-1"),
   CACHE_OSS_ACCESS_KEY_ID: z.string().optional(),
   CACHE_OSS_ACCESS_KEY_SECRET: z.string().optional(),
+  // Object key prefix for cached documents. Leaves room for dev/prod
+  // partitioning inside a shared bucket (ZF-9 RRSA: prod=docs/, dev=docs-dev/).
+  // Trailing slash recommended to keep paths flat.
+  CACHE_OSS_PREFIX: z.string().default("docs/"),
   ZAPFETCH_CACHE_DEFAULT_MAX_AGE_MS: z.coerce
     .number()
     .int()
