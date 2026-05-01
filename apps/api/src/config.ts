@@ -84,7 +84,11 @@ const configSchema = z.object({
 
   // ZF-2: zapfetch-cache (Postgres + Aliyun OSS, replaces upstream index for our deploys)
   // ZAPFETCH-OVERRIDE: see firecrawl/ZAPFETCH-OVERRIDES.md
-  ZAPFETCH_USE_CACHE: z.coerce.boolean().default(false),
+  // Use stringbool() (not coerce.boolean()) so "false" / "0" / "no" actually
+  // turn the cache off. coerce.boolean() treats every non-empty string as
+  // true, which silently keeps cache enabled when an operator sets the
+  // ConfigMap to "false" intending to disable it.
+  ZAPFETCH_USE_CACHE: z.stringbool().default(false),
   CACHE_DATABASE_URL: z.string().optional(),
   CACHE_OSS_BUCKET: z.string().optional(),
   CACHE_OSS_REGION: z.string().default("oss-ap-southeast-1"),
