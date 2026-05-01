@@ -96,12 +96,18 @@ const configSchema = z.object({
   CACHE_OSS_ACCESS_KEY_SECRET: z.string().optional(),
   // Object key prefix for cached documents. Leaves room for dev/prod
   // partitioning inside a shared bucket (ZF-9 RRSA: prod=docs/, dev=docs-dev/).
-  // Auto-normalizes to ensure trailing slash so callers can pass "docs-dev"
+  // Trim Unicode whitespace first (NBSP, ZWSP, etc. would otherwise become
+  // part of every OSS key — flagged by codex challenge round 2). Then
+  // auto-normalize to ensure trailing slash so callers can pass "docs-dev"
   // or "docs-dev/" interchangeably without producing keys like "docs-dev2026/...".
+  // Empty string after trimming is preserved (no prefix, bucket-root keys).
   CACHE_OSS_PREFIX: z
     .string()
     .default("docs/")
-    .transform((s) => (s === "" || s.endsWith("/") ? s : s + "/")),
+    .transform((s) => {
+      const t = s.trim();
+      return t === "" || t.endsWith("/") ? t : t + "/";
+    }),
   ZAPFETCH_CACHE_DEFAULT_MAX_AGE_MS: z.coerce
     .number()
     .int()
