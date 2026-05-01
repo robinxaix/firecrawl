@@ -92,8 +92,12 @@ const configSchema = z.object({
   CACHE_OSS_ACCESS_KEY_SECRET: z.string().optional(),
   // Object key prefix for cached documents. Leaves room for dev/prod
   // partitioning inside a shared bucket (ZF-9 RRSA: prod=docs/, dev=docs-dev/).
-  // Trailing slash recommended to keep paths flat.
-  CACHE_OSS_PREFIX: z.string().default("docs/"),
+  // Auto-normalizes to ensure trailing slash so callers can pass "docs-dev"
+  // or "docs-dev/" interchangeably without producing keys like "docs-dev2026/...".
+  CACHE_OSS_PREFIX: z
+    .string()
+    .default("docs/")
+    .transform((s) => (s === "" || s.endsWith("/") ? s : s + "/")),
   ZAPFETCH_CACHE_DEFAULT_MAX_AGE_MS: z.coerce
     .number()
     .int()
