@@ -7,7 +7,11 @@ import {
 } from "../../../../zapfetch/cache";
 import { computeCacheKey, normalizeUrl } from "./key";
 import { shouldSkipCache } from "./should-skip";
-import { getDefaultMaxAge, getZapfetchCacheStorage } from "./storage";
+import {
+  getDefaultMaxAge,
+  getWritebackTtl,
+  getZapfetchCacheStorage,
+} from "./storage";
 
 /**
  * Build the engine handler with injected storage.
@@ -124,92 +128,122 @@ export async function scrapeURLWithZapfetchCache(
 }
 
 /**
- * Write-back transformer. Saves the freshly-scraped document to PG+OSS
- * fire-and-forget so cache hits become available for next requests.
+ * Build the writeback handler with injected storage. Mirrors the engine's
+ * factory pattern so unit tests can mock storage + clock + TTL without
+ * loading the module-level singleton.
  *
  * Skipped when:
- *   - shouldSkipCache(meta) (auth headers, sensitive params, maxAge=0)
  *   - cache is the winnerEngine (don't write what we just read)
- *   - statusCode is non-2xx (don't cache failures)
+ *   - shouldSkipCache(meta) (auth headers, sensitive params, user-supplied
+ *     maxAge=0 — the latter is the ONLY maxAge gate; ConfigMap default of
+ *     0 must still write so "lookup off, writeback on" canary is possible)
  *   - lockdown / zeroDataRetention flags set
+ *   - statusCode non-2xx
+ *   - empty html
  *
- * Always returns the document unchanged — write failures must NOT block
- * the response.
+ * The fire-and-forget Promise is RETURNED via deps.onWrite so tests can
+ * await it. In production we drop it on the floor (writes never block).
+ */
+export function makeSendDocumentToZapfetchCache(deps: {
+  metadata: CacheMetadataStore;
+  content: CacheContentStore;
+  now?: () => Date;
+  writebackTtlMs?: number;
+  /** Test hook — receives the in-flight write Promise so callers can await. */
+  onWrite?: (p: Promise<void>) => void;
+}): (
+  meta: Meta,
+  document: import("../../../../controllers/v1/types").Document,
+) => Promise<import("../../../../controllers/v1/types").Document> {
+  const now = deps.now ?? (() => new Date());
+  const writebackTtlMs = deps.writebackTtlMs ?? getWritebackTtl();
+
+  return async function sendDocumentToZapfetchCache(meta, document) {
+    if (meta.winnerEngine === "zapfetch-cache") return document;
+
+    const skip = shouldSkipCache(meta);
+    if (skip.skip) return document;
+
+    if (
+      meta.internalOptions.zeroDataRetention ||
+      meta.options.lockdown === true
+    ) {
+      return document;
+    }
+
+    const status = document.metadata?.statusCode;
+    if (typeof status !== "number" || status < 200 || status >= 300) {
+      return document;
+    }
+
+    const html = document.rawHtml ?? document.html ?? "";
+    if (!html) return document;
+
+    // Fire-and-forget — never block scrape response on cache write.
+    const writePromise = (async () => {
+      try {
+        const key = computeCacheKey(meta);
+        const url = normalizeUrl(meta.rewrittenUrl ?? meta.url);
+        const domain = (() => {
+          try {
+            return new URL(url).hostname;
+          } catch {
+            return "unknown";
+          }
+        })();
+        const writtenAt = now();
+        const datePath = writtenAt
+          .toISOString()
+          .slice(0, 10)
+          .replace(/-/g, "/"); // YYYY/MM/DD
+        const ossPath = `docs/${datePath}/${key}.html.gz`;
+
+        const content = Buffer.from(html, "utf8");
+
+        await deps.content.put(ossPath, content);
+        await deps.metadata.saveMetadata({
+          cacheKey: key,
+          normalizedUrl: url,
+          domain,
+          ossPath,
+          statusCode: status,
+          contentType: document.metadata?.contentType,
+          sizeBytes: content.byteLength,
+          formats: extractFormatNames(meta),
+          cachedAt: writtenAt,
+          expiresAt: new Date(writtenAt.getTime() + writebackTtlMs),
+        });
+
+        meta.logger.debug("zapfetch-cache: wrote", {
+          cacheKey: key,
+          sizeBytes: content.byteLength,
+        });
+      } catch (err) {
+        meta.logger.warn("zapfetch-cache: write failed (non-fatal)", { err });
+      }
+    })();
+
+    if (deps.onWrite) {
+      deps.onWrite(writePromise);
+    } else {
+      void writePromise;
+    }
+    return document;
+  };
+}
+
+/**
+ * Write-back transformer. Saves the freshly-scraped document to PG+OSS
+ * fire-and-forget so cache hits become available for next requests.
+ * Module-level wrapper around the factory; resolves storage singleton.
  */
 export async function sendDocumentToZapfetchCache(
   meta: Meta,
   document: import("../../../../controllers/v1/types").Document,
 ): Promise<import("../../../../controllers/v1/types").Document> {
-  // Don't cache if we just read from cache.
-  if (meta.winnerEngine === "zapfetch-cache") return document;
-
-  const skip = shouldSkipCache(meta);
-  if (skip.skip) return document;
-
-  if (
-    meta.internalOptions.zeroDataRetention ||
-    meta.options.lockdown === true
-  ) {
-    return document;
-  }
-
-  const status = document.metadata?.statusCode;
-  if (typeof status !== "number" || status < 200 || status >= 300) {
-    return document;
-  }
-
-  const html = document.rawHtml ?? document.html ?? "";
-  if (!html) return document;
-
-  const maxAge =
-    typeof meta.options.maxAge === "number"
-      ? meta.options.maxAge
-      : getDefaultMaxAge();
-  if (maxAge <= 0) return document;
-
-  // Fire-and-forget — never block scrape response on cache write.
-  void (async () => {
-    try {
-      const storage = getZapfetchCacheStorage();
-      const key = computeCacheKey(meta);
-      const url = normalizeUrl(meta.rewrittenUrl ?? meta.url);
-      const domain = (() => {
-        try {
-          return new URL(url).hostname;
-        } catch {
-          return "unknown";
-        }
-      })();
-      const now = new Date();
-      const datePath = now.toISOString().slice(0, 10).replace(/-/g, "/"); // YYYY/MM/DD
-      const ossPath = `docs/${datePath}/${key}.html.gz`;
-
-      const content = Buffer.from(html, "utf8");
-
-      await storage.content.put(ossPath, content);
-      await storage.metadata.saveMetadata({
-        cacheKey: key,
-        normalizedUrl: url,
-        domain,
-        ossPath,
-        statusCode: status,
-        contentType: document.metadata?.contentType,
-        sizeBytes: content.byteLength,
-        formats: extractFormatNames(meta),
-        cachedAt: now,
-        expiresAt: new Date(now.getTime() + maxAge),
-      });
-
-      meta.logger.debug("zapfetch-cache: wrote", {
-        cacheKey: key,
-        sizeBytes: content.byteLength,
-      });
-    } catch (err) {
-      meta.logger.warn("zapfetch-cache: write failed (non-fatal)", { err });
-    }
-  })();
-
-  return document;
+  const storage = getZapfetchCacheStorage();
+  const handler = makeSendDocumentToZapfetchCache(storage);
+  return handler(meta, document);
 }
 
 function extractFormatNames(meta: Meta): string[] {
