@@ -5,6 +5,7 @@ import {
   CacheContentStore,
   CacheMetadataStore,
 } from "../../../../zapfetch/cache";
+import { config } from "../../../../config";
 import { computeCacheKey, normalizeUrl } from "./key";
 import { shouldSkipCache } from "./should-skip";
 import { getDefaultMaxAge, getZapfetchCacheStorage } from "./storage";
@@ -143,8 +144,20 @@ export async function sendDocumentToZapfetchCache(
   // Don't cache if we just read from cache.
   if (meta.winnerEngine === "zapfetch-cache") return document;
 
+  // shouldSkipCache is the read-path predicate. Most of its skip reasons
+  // (auth-headers, sensitive query params, invalid URL) are also valid
+  // write-path skips — those reasons mean the response itself isn't
+  // safe to share. But "maxAge=0" is a read-side signal: the caller
+  // wanted a fresh fetch for their request, not a directive that the
+  // cache shouldn't be populated for future readers. Without this
+  // carve-out, callers passing maxAge=0 silently disable writeback —
+  // which masked Phase-1 dormant deployments and was flagged in codex
+  // challenge round 2.
+  //
+  // Stricter write-side eligibility (storeInCache:false, actions,
+  // location, profile, etc.) is tracked separately in ZF-10.
   const skip = shouldSkipCache(meta);
-  if (skip.skip) return document;
+  if (skip.skip && skip.reason !== "maxAge=0") return document;
 
   if (
     meta.internalOptions.zeroDataRetention ||
@@ -161,11 +174,20 @@ export async function sendDocumentToZapfetchCache(
   const html = document.rawHtml ?? document.html ?? "";
   if (!html) return document;
 
-  const maxAge =
-    typeof meta.options.maxAge === "number"
-      ? meta.options.maxAge
-      : getDefaultMaxAge();
-  if (maxAge <= 0) return document;
+  // Writeback uses the fork-default TTL, NOT the caller's maxAge. Reason:
+  //   - Caller's maxAge=0 means "force a fresh fetch" — that's a *read-side*
+  //     signal about the response they want. It should not also disable
+  //     populating the cache for future readers, which is shared infrastructure.
+  //   - The kill-switch for writeback is the fork default itself: setting
+  //     `ZAPFETCH_CACHE_DEFAULT_MAX_AGE_MS=0` (e.g. via ConfigMap) yields
+  //     writebackTtl=0 below and skips writes. This is what Phase-1 dormant
+  //     deployments rely on.
+  // Pre-fix this function read meta.options.maxAge here, which silently
+  // turned every caller-side maxAge=0 into a writeback skip — making the
+  // ConfigMap-level kill-switch redundant and breaking Phase-1 "write-only"
+  // intent. See ZF-2 followup.
+  const writebackTtl = getDefaultMaxAge();
+  if (writebackTtl <= 0) return document;
 
   // Fire-and-forget — never block scrape response on cache write.
   void (async () => {
@@ -182,7 +204,7 @@ export async function sendDocumentToZapfetchCache(
       })();
       const now = new Date();
       const datePath = now.toISOString().slice(0, 10).replace(/-/g, "/"); // YYYY/MM/DD
-      const ossPath = `docs/${datePath}/${key}.html.gz`;
+      const ossPath = `${config.CACHE_OSS_PREFIX}${datePath}/${key}.html.gz`;
 
       const content = Buffer.from(html, "utf8");
 
@@ -197,7 +219,7 @@ export async function sendDocumentToZapfetchCache(
         sizeBytes: content.byteLength,
         formats: extractFormatNames(meta),
         cachedAt: now,
-        expiresAt: new Date(now.getTime() + maxAge),
+        expiresAt: new Date(now.getTime() + writebackTtl),
       });
 
       meta.logger.debug("zapfetch-cache: wrote", {
