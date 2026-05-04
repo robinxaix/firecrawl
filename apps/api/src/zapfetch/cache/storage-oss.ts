@@ -15,22 +15,27 @@ export interface OssClient {
   deleteMulti(names: string[], options?: { quiet?: boolean }): Promise<unknown>;
 }
 
-type OssClientFactory = () => OssClient;
+// Factory may be sync or async — async is needed for the RRSA path which
+// awaits @alicloud/credentials' STS AssumeRoleWithOIDC roundtrip before
+// constructing the OSS client. Tests pass a sync mock; production passes
+// async (see scrapeURL/engines/zapfetch-cache/storage.ts).
+type OssClientFactory = () => OssClient | Promise<OssClient>;
 
 export class OssContentStore implements CacheContentStore {
   private clientCache?: OssClient;
 
   constructor(private readonly factory: OssClientFactory) {}
 
-  private client(): OssClient {
-    if (!this.clientCache) this.clientCache = this.factory();
+  private async client(): Promise<OssClient> {
+    if (!this.clientCache) this.clientCache = await this.factory();
     return this.clientCache;
   }
 
   async put(ossPath: string, content: Buffer): Promise<void> {
     try {
       const compressed = gzipSync(content);
-      await this.client().put(ossPath, compressed);
+      const c = await this.client();
+      await c.put(ossPath, compressed);
     } catch (err) {
       throw new CacheStorageError(`OSS put failed for ${ossPath}`, err);
     }
@@ -38,7 +43,8 @@ export class OssContentStore implements CacheContentStore {
 
   async get(ossPath: string): Promise<Buffer | null> {
     try {
-      const { content } = await this.client().get(ossPath);
+      const c = await this.client();
+      const { content } = await c.get(ossPath);
       return gunzipSync(content);
     } catch (err) {
       // ali-oss throws err with .code === 'NoSuchKey' on 404
@@ -50,7 +56,8 @@ export class OssContentStore implements CacheContentStore {
 
   async delete(ossPath: string): Promise<void> {
     try {
-      await this.client().delete(ossPath);
+      const c = await this.client();
+      await c.delete(ossPath);
     } catch (err) {
       const code = (err as { code?: string }).code;
       if (code === "NoSuchKey") return; // idempotent
@@ -62,10 +69,11 @@ export class OssContentStore implements CacheContentStore {
     if (ossPaths.length === 0) return;
     // ali-oss limit: 1000 keys per call. Chunk if larger.
     const CHUNK = 1000;
+    const c = await this.client();
     for (let i = 0; i < ossPaths.length; i += CHUNK) {
       const chunk = ossPaths.slice(i, i + CHUNK);
       try {
-        await this.client().deleteMulti(chunk, { quiet: true });
+        await c.deleteMulti(chunk, { quiet: true });
       } catch (err) {
         throw new CacheStorageError(
           `OSS deleteMulti failed (chunk ${i}-${i + chunk.length})`,
