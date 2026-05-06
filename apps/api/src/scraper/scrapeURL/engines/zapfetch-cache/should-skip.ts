@@ -15,18 +15,26 @@ const SENSITIVE_QUERY_PARAMS = new Set([
 ]);
 
 /**
- * Decide whether a request should bypass cache (both lookup and write).
+ * Decide whether a request should bypass cache lookup.
  *
  * Returns { skip: true, reason } if cache must be bypassed; { skip: false }
  * otherwise.
  *
- * Reasons (DC7 from docs/response-cache-plan.md):
+ * Reasons:
  *   - maxAge=0: caller explicitly requested no-cache
+ *   - profile: caller supplied browsing profile (logged-in state, custom
+ *     cookies via Camoufox, etc.) — response is profile-specific, sharing
+ *     it across tenants risks leaking authenticated content
  *   - auth-headers: Authorization or Cookie header present
+ *   - custom-headers: any other caller-supplied header (Accept-Language,
+ *     Referer, User-Agent override, etc.) materially affects downstream
+ *     engines — mirrors the upstream index engine's eligibility check at
+ *     engines/index/index.ts:55-58
  *   - sensitive-param:<name>: URL has token-like query param
+ *   - invalid-url: URL doesn't parse
  *
- * Non-2xx and zeroDataRetention checks are applied at the WRITE side
- * (in the engine fallback chain after a fresh scrape), not here.
+ * For write-side eligibility (storeInCache, actions, location) see
+ * `shouldSkipWriteback` which adds those checks on top of this predicate.
  */
 export function shouldSkipCache(meta: Meta): {
   skip: boolean;
@@ -36,6 +44,10 @@ export function shouldSkipCache(meta: Meta): {
     return { skip: true, reason: "maxAge=0" };
   }
 
+  if (meta.options.profile !== undefined) {
+    return { skip: true, reason: "profile" };
+  }
+
   const headers = meta.options.headers ?? {};
   for (const k of Object.keys(headers)) {
     const lower = k.toLowerCase();
@@ -43,12 +55,14 @@ export function shouldSkipCache(meta: Meta): {
       return { skip: true, reason: "auth-headers" };
     }
   }
+  if (Object.keys(headers).length > 0) {
+    return { skip: true, reason: "custom-headers" };
+  }
 
   let parsed: URL;
   try {
     parsed = new URL(meta.rewrittenUrl ?? meta.url);
   } catch {
-    // Bad URL won't cache — cleanest to skip (engine fallback will handle).
     return { skip: true, reason: "invalid-url" };
   }
 

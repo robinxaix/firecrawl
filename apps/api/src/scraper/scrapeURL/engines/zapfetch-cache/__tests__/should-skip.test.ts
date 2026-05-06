@@ -36,9 +36,34 @@ describe("shouldSkipCache", () => {
     expect(r.reason).toBe("auth-headers");
   });
 
-  it("does NOT skip on benign custom headers", () => {
+  it("skips on any caller-supplied custom header (mirrors upstream index engine)", () => {
     const r = shouldSkipCache(meta({ headers: { "X-Custom": "ok" } }));
-    expect(r.skip).toBe(false);
+    expect(r.skip).toBe(true);
+    expect(r.reason).toBe("custom-headers");
+  });
+
+  it("skips when Accept-Language header present (downstream engines honor it)", () => {
+    const r = shouldSkipCache(meta({ headers: { "Accept-Language": "fr" } }));
+    expect(r.skip).toBe(true);
+    expect(r.reason).toBe("custom-headers");
+  });
+
+  it("auth-headers reason wins over custom-headers when both present", () => {
+    const r = shouldSkipCache(
+      meta({ headers: { Authorization: "Bearer x", "X-Custom": "y" } }),
+    );
+    expect(r.skip).toBe(true);
+    expect(r.reason).toBe("auth-headers");
+  });
+
+  it("skips when options.profile is set (cross-tenant content leak)", () => {
+    const r = shouldSkipCache(meta({ profile: { name: "premium-account" } }));
+    expect(r.skip).toBe(true);
+    expect(r.reason).toBe("profile");
+  });
+
+  it("does NOT skip when profile is undefined", () => {
+    expect(shouldSkipCache(meta({ profile: undefined })).skip).toBe(false);
   });
 
   it("skips when URL has token query param", () => {

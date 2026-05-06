@@ -8,6 +8,7 @@ import {
 import { config } from "../../../../config";
 import { computeCacheKey, normalizeUrl } from "./key";
 import { shouldSkipCache } from "./should-skip";
+import { shouldSkipWriteback } from "./should-skip-writeback";
 import { getDefaultMaxAge, getZapfetchCacheStorage } from "./storage";
 
 /**
@@ -129,7 +130,8 @@ export async function scrapeURLWithZapfetchCache(
  * fire-and-forget so cache hits become available for next requests.
  *
  * Skipped when:
- *   - shouldSkipCache(meta) (auth headers, sensitive params, maxAge=0)
+ *   - shouldSkipWriteback(meta) — read-side rules (minus maxAge=0) plus
+ *     storeInCache=false, actions, location
  *   - cache is the winnerEngine (don't write what we just read)
  *   - statusCode is non-2xx (don't cache failures)
  *   - lockdown / zeroDataRetention flags set
@@ -141,23 +143,10 @@ export async function sendDocumentToZapfetchCache(
   meta: Meta,
   document: import("../../../../controllers/v1/types").Document,
 ): Promise<import("../../../../controllers/v1/types").Document> {
-  // Don't cache if we just read from cache.
   if (meta.winnerEngine === "zapfetch-cache") return document;
 
-  // shouldSkipCache is the read-path predicate. Most of its skip reasons
-  // (auth-headers, sensitive query params, invalid URL) are also valid
-  // write-path skips — those reasons mean the response itself isn't
-  // safe to share. But "maxAge=0" is a read-side signal: the caller
-  // wanted a fresh fetch for their request, not a directive that the
-  // cache shouldn't be populated for future readers. Without this
-  // carve-out, callers passing maxAge=0 silently disable writeback —
-  // which masked Phase-1 dormant deployments and was flagged in codex
-  // challenge round 2.
-  //
-  // Stricter write-side eligibility (storeInCache:false, actions,
-  // location, profile, etc.) is tracked separately in ZF-10.
-  const skip = shouldSkipCache(meta);
-  if (skip.skip && skip.reason !== "maxAge=0") return document;
+  const skip = shouldSkipWriteback(meta);
+  if (skip.skip) return document;
 
   if (
     meta.internalOptions.zeroDataRetention ||
