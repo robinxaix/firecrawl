@@ -8,6 +8,7 @@ import {
 import { config } from "../../../../config";
 import { computeCacheKey, normalizeUrl } from "./key";
 import { shouldSkipCache } from "./should-skip";
+import { shouldSkipWriteback } from "./should-skip-writeback";
 import {
   getDefaultMaxAge,
   getWritebackTtl,
@@ -134,10 +135,9 @@ export async function scrapeURLWithZapfetchCache(
  * loading the module-level singleton.
  *
  * Skipped when:
+ *   - shouldSkipWriteback(meta) — read-side rules (minus maxAge=0) plus
+ *     storeInCache=false, actions, location
  *   - cache is the winnerEngine (don't write what we just read)
- *   - shouldSkipCache(meta) (auth headers, sensitive params, user-supplied
- *     maxAge=0 — the latter is the ONLY maxAge gate; ConfigMap default of
- *     0 must still write so "lookup off, writeback on" canary is possible)
  *   - lockdown / zeroDataRetention flags set
  *   - statusCode non-2xx
  *   - empty html
@@ -162,7 +162,7 @@ export function makeSendDocumentToZapfetchCache(deps: {
   return async function sendDocumentToZapfetchCache(meta, document) {
     if (meta.winnerEngine === "zapfetch-cache") return document;
 
-    const skip = shouldSkipCache(meta);
+    const skip = shouldSkipWriteback(meta);
     if (skip.skip) return document;
 
     if (

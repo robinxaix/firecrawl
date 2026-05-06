@@ -281,17 +281,59 @@ describe("sendDocumentToZapfetchCache (writeback)", () => {
     );
   });
 
-  it("respects user-supplied maxAge=0 by skipping (shouldSkipCache contract)", async () => {
-    // shouldSkipCache returns skip:true for explicit maxAge=0; writeback no
-    // longer has its own gate, so this is the single source of opt-out.
+  it("writes when user-supplied maxAge=0 (writeback carve-out)", async () => {
+    // maxAge=0 forces a fresh fetch for this request, but writeback still
+    // populates the shared cache for future readers.
     const stores = makeStores();
     const result = await runWriteback(
       stores,
       writebackMeta({ options: { maxAge: 0, formats: ["markdown"] } }),
       goodDocument(),
     );
+    expect(result.wrote).toBe(true);
+    expect(stores.content.put).toHaveBeenCalledTimes(1);
+    expect(stores.metadata.saveMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not write when storeInCache=false", async () => {
+    const stores = makeStores();
+    const result = await runWriteback(
+      stores,
+      writebackMeta({
+        options: { storeInCache: false, formats: ["markdown"] },
+      }),
+      goodDocument(),
+    );
     expect(result.wrote).toBe(false);
-    expect(stores.content.put).not.toHaveBeenCalled();
+    expect(stores.metadata.saveMetadata).not.toHaveBeenCalled();
+  });
+
+  it("does not write when actions are present", async () => {
+    const stores = makeStores();
+    const result = await runWriteback(
+      stores,
+      writebackMeta({
+        options: {
+          actions: [{ type: "click", selector: "#button" }],
+          formats: ["markdown"],
+        },
+      }),
+      goodDocument(),
+    );
+    expect(result.wrote).toBe(false);
+    expect(stores.metadata.saveMetadata).not.toHaveBeenCalled();
+  });
+
+  it("does not write when location is pinned", async () => {
+    const stores = makeStores();
+    const result = await runWriteback(
+      stores,
+      writebackMeta({
+        options: { location: { country: "JP" }, formats: ["markdown"] },
+      }),
+      goodDocument(),
+    );
+    expect(result.wrote).toBe(false);
     expect(stores.metadata.saveMetadata).not.toHaveBeenCalled();
   });
 
