@@ -121,13 +121,32 @@ export function getZapfetchCacheStorage(): {
   return cached;
 }
 
+/** ZF-2 fork-hardcoded fallback TTL (24h). Single source of truth for both
+ * lookup default and writeback TTL — keeping them aligned by default. */
+const ZF_FORK_DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 /**
- * Default cache TTL (ms) when caller didn't supply maxAge.
+ * LOOKUP-side default cache TTL (ms) when caller didn't supply maxAge.
  *
  * ZF-2 design: 24h applied to all v2 requests that don't set maxAge=0.
  * Override via ZAPFETCH_CACHE_DEFAULT_MAX_AGE_MS env. Set to 0 to
- * effectively disable cache for callers that don't opt in.
+ * effectively make every "no-maxAge" lookup miss for callers that don't
+ * opt in — useful for staging "write-only canary" rollouts where you want
+ * to populate the cache before opening hits to traffic.
  */
 export function getDefaultMaxAge(): number {
-  return config.ZAPFETCH_CACHE_DEFAULT_MAX_AGE_MS ?? 24 * 60 * 60 * 1000;
+  return config.ZAPFETCH_CACHE_DEFAULT_MAX_AGE_MS ?? ZF_FORK_DEFAULT_MAX_AGE_MS;
+}
+
+/**
+ * WRITEBACK-side TTL (ms) for the entry's `expires_at` column.
+ *
+ * Decoupled from `getDefaultMaxAge()` on purpose: a "write-only canary"
+ * (lookup default = 0) must still produce real cache rows so the next
+ * Phase can flip lookups on without an empty index. Hardcoded to the
+ * fork default — there is no env to disable writeback (kill-switch is
+ * `ZAPFETCH_USE_CACHE`, not a TTL knob).
+ */
+export function getWritebackTtl(): number {
+  return ZF_FORK_DEFAULT_MAX_AGE_MS;
 }

@@ -104,7 +104,7 @@ const configSchema = z.object({
   CACHE_OSS_PREFIX: z
     .string()
     .default("docs/")
-    .transform((s) => {
+    .transform(s => {
       const t = s.trim();
       return t === "" || t.endsWith("/") ? t : t + "/";
     }),
