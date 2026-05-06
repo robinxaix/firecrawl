@@ -12,6 +12,10 @@ import { IndexMissError } from "../../../error";
 import { Meta } from "../../..";
 import type { Document } from "../../../../../controllers/v1/types";
 
+type DocumentOverride = Partial<Omit<Document, "metadata">> & {
+  metadata?: Partial<Document["metadata"]>;
+};
+
 const meta = (overrides: Record<string, unknown> = {}): Meta =>
   ({
     url: "https://example.com/page",
@@ -211,12 +215,17 @@ describe("sendDocumentToZapfetchCache (writeback)", () => {
       ...overrides,
     }) as unknown as Meta;
 
-  const goodDocument = (overrides: Partial<Document> = {}): Document =>
+  const goodDocument = (overrides: DocumentOverride = {}): Document =>
     ({
       html: "<html>fresh content</html>",
       rawHtml: undefined,
-      metadata: { statusCode: 200, contentType: "text/html" },
       ...overrides,
+      metadata: {
+        statusCode: 200,
+        contentType: "text/html",
+        proxyUsed: "basic",
+        ...(overrides.metadata ?? {}),
+      },
     }) as unknown as Document;
 
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -235,7 +244,7 @@ describe("sendDocumentToZapfetchCache (writeback)", () => {
       content: deps.content,
       now: fixedNow,
       writebackTtlMs: opts.writebackTtlMs,
-      onWrite: (p) => {
+      onWrite: p => {
         captured = p;
       },
     });
@@ -356,12 +365,16 @@ describe("sendDocumentToZapfetchCache (writeback)", () => {
       { writebackTtlMs: overrideTtl },
     );
     const saved = (stores.metadata.saveMetadata as jest.Mock).mock.calls[0][0];
-    expect(saved.expiresAt).toEqual(new Date(fixedNow().getTime() + overrideTtl));
+    expect(saved.expiresAt).toEqual(
+      new Date(fixedNow().getTime() + overrideTtl),
+    );
   });
 
   it("swallows storage errors (writeback is never fatal)", async () => {
     const stores = makeStores();
-    (stores.content.put as jest.Mock).mockRejectedValueOnce(new Error("OSS 5xx"));
+    (stores.content.put as jest.Mock).mockRejectedValueOnce(
+      new Error("OSS 5xx"),
+    );
     // No throw expected — the wrapped promise catches and logs.
     const result = await runWriteback(stores, writebackMeta(), goodDocument());
     expect(result.wrote).toBe(true);

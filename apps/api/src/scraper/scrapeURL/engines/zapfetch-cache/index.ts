@@ -5,6 +5,7 @@ import {
   CacheContentStore,
   CacheMetadataStore,
 } from "../../../../zapfetch/cache";
+import { config } from "../../../../config";
 import { computeCacheKey, normalizeUrl } from "./key";
 import { shouldSkipCache } from "./should-skip";
 import {
@@ -196,7 +197,7 @@ export function makeSendDocumentToZapfetchCache(deps: {
           .toISOString()
           .slice(0, 10)
           .replace(/-/g, "/"); // YYYY/MM/DD
-        const ossPath = `docs/${datePath}/${key}.html.gz`;
+        const ossPath = `${config.CACHE_OSS_PREFIX}${datePath}/${key}.html.gz`;
 
         const content = Buffer.from(html, "utf8");
 
